@@ -1,0 +1,6 @@
+[toolchain]
+# Soroban requires Rust >= 1.84.0 for the wasm32v1-none target.
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32v1-none"]
+profile = "minimal"

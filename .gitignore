@@ -1,0 +1,18 @@
+# Build artifacts
+target/
+**/*.rs.bk
+
+# Soroban / Stellar CLI local state
+.soroban/
+stellar/
+*.wasm
+
+# Environment — never commit real values
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

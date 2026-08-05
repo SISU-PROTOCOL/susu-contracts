@@ -1,0 +1,20 @@
+# CODEOWNERS
+#
+# Owners are automatically requested for review. Sensitive paths require maintainer review.
+# Replace the placeholder handles below with real GitHub usernames before enabling
+# branch protection. Until then, reviews are requested from the org owner.
+
+# Default owner for everything in this repository.
+*                                   @geeekyfocus
+
+# Financial authority — contract logic and invariants.
+/contracts/factory/                 @geeekyfocus
+/contracts/group/                   @geeekyfocus
+
+# Security-critical configuration.
+/deny.toml                          @geeekyfocus
+/SECURITY.md                        @geeekyfocus
+/.github/workflows/                 @geeekyfocus
+/docs/THREAT_MODEL.md               @geeekyfocus
+/docs/CONTRACT_SPEC.md              @geeekyfocus
+/docs/MAINNET_READINESS.md          @geeekyfocus
