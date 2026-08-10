@@ -2,10 +2,15 @@
 # Run: cargo deny check
 
 [graph]
+# Only the target that is actually deployed is checked.
+#
+# A Soroban contract runs on-chain as wasm32v1-none. Host-only dependencies —
+# which `soroban-sdk` pulls in behind `cfg(not(target_family = "wasm"))` for
+# tests and the host runtime — never ship, so their advisories are not ours to
+# fix and must not gate the build. Restricting the graph keeps the check
+# meaningful: an advisory that actually reaches the deployed Wasm still fails.
 targets = [
   { triple = "wasm32v1-none" },
-  { triple = "aarch64-apple-darwin" },
-  { triple = "x86_64-unknown-linux-gnu" },
 ]
 
 [advisories]
