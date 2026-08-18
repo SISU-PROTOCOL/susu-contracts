@@ -1795,6 +1795,7 @@ name = "susu-factory"
 version = "0.1.0"
 dependencies = [
  "soroban-sdk",
+ "susu-group",
 ]
 
 [[package]]

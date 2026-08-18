@@ -16,3 +16,13 @@ soroban-sdk = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
+# The Group contract is needed by the deployment integration test, which asserts
+# that a Factory-created group is a real, working Group contract. The explicit
+# version keeps `cargo deny`'s wildcard ban satisfied for a path dependency.
+susu-group = { path = "../group", version = "0.1.0" }
+
+[features]
+# Enables integration tests that deploy a real Group Wasm. Requires the Wasm to
+# have been built first (see scripts/build-contracts.sh); CI does this explicitly
+# so that a plain `cargo test` never depends on build order.
+wasm-integration = []
