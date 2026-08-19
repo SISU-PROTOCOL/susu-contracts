@@ -54,12 +54,20 @@ jobs:
 
       - name: Build contracts (wasm32v1-none)
         # Equivalent to `stellar contract build`, which wraps this cargo invocation.
-        run: cargo build --workspace --target wasm32v1-none --release
+        # Builds into ./target so the deployment integration test can find the Wasm
+        # by its crate-relative path.
+        run: ./scripts/build-contracts.sh
 
       - name: Verify wasm artifacts exist
         run: |
           set -euo pipefail
           ls -la target/wasm32v1-none/release/*.wasm
+
+      - name: Integration test (Factory deploys a real Group)
+        # Gated behind `wasm-integration` because it loads the compiled Wasm. Run
+        # here, after the build, so it is actually enforced in CI rather than
+        # silently skipped.
+        run: cargo test -p susu-factory --features wasm-integration
 
   security:
     name: Security Checks
