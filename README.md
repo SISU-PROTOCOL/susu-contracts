@@ -5,8 +5,10 @@
 Soroban (Rust/Wasm) smart contracts for **Susu Protocol** — a non-custodial rotating
 savings protocol on Stellar.
 
-> **Status: Phase 0 — scaffolding.** The Factory and Group interfaces are implemented
-> in Phase 1. Nothing here is audited, and no contract has been deployed to Mainnet.
+> **Status: Phase 1 — contracts implemented.** The Factory and Group contracts, their
+> full test suites, and the Factory→Group deployment integration test are in place and
+> green in CI. Nothing here is audited, and no contract has been deployed to Mainnet.
+> See [`docs/CONTRACT_SPEC.md`](docs/CONTRACT_SPEC.md) for the implemented interface.
 
 ## What Susu is
 
@@ -63,7 +65,8 @@ rustup target add wasm32v1-none
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-stellar contract build     # or: cargo build --target wasm32v1-none --release --workspace
+./scripts/build-contracts.sh   # or: stellar contract build
+cargo test -p susu-factory --features wasm-integration
 cargo deny check
 cargo audit
 ```

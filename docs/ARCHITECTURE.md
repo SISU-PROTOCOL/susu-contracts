@@ -1,7 +1,7 @@
 # Architecture — susu-contracts
 
-> Phase 0 draft. This document evolves with the implementation and is not a substitute for
-> reading the code.
+> Phase 1. This document is kept in sync with the implementation and is not a substitute
+> for reading the code.
 
 ## Role
 
@@ -58,8 +58,8 @@ reach another group's funds.
 | Actor | Can do | Cannot do |
 |---|---|---|
 | Factory admin | Configure fee/treasury, pause new group creation | Move any group's funds |
-| Group creator | Create the group, set config before start | Withdraw funds, change rules after start |
-| Member | Contribute, join, and trigger a valid payout | Contribute twice, contribute the wrong amount, force early payout |
+| Group creator | Create the group; its configuration is fixed at construction | Withdraw funds, change any rule after construction |
+| Member | Join, contribute, and trigger a valid payout | Contribute twice, contribute the wrong amount, force early payout |
 | Anyone | Execute a payout once a round is fully funded and valid | Skip contract checks, choose the recipient |
 | Treasury | Receive the 0.50% fee | Withdraw group funds |
 | Backend / indexer | Read, index, reconcile | Any financial authority |

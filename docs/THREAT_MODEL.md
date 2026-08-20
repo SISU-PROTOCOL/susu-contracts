@@ -1,6 +1,6 @@
 # Threat Model — susu-contracts
 
-> Phase 0 draft. Reviewed and updated as the implementation lands. This document does not
+> Phase 1 — updated against the implemented contracts. This document does not
 > claim the system is secure — it records what we are defending against and how.
 
 ## Assets
@@ -77,9 +77,13 @@ twice, underpay, or claim a payout early.*
 
 ### Storage, TTL, and upgrade abuse
 
-- Every storage key's TTL/archival behavior is documented and tested, including archival
-  and restoration paths.
-- Upgrade authority, if any, is explicit and documented. No silent upgrades.
+- Every storage key and its TTL/archival behavior is documented in
+  [`CONTRACT_SPEC.md`](CONTRACT_SPEC.md#storage--ttl).
+- TTL extension is exercised by a test (`ttl_is_extended_by_an_interaction`).
+  Archival and restoration paths are not yet exercised end-to-end.
+- Neither contract has an upgrade entry point: there is no `upgrade`, `set_wasm`, or
+  admin-controlled code replacement. Upgrade authority is therefore nil by
+  construction, and any change ships as a new deployment.
 - Financial upgrades require human security review.
 
 ### Denial of service and transaction substitution
@@ -98,5 +102,6 @@ insurance. Threats arising from those systems are out of scope by design.
 ## Open items
 
 - Formal verification of the fee and payout arithmetic is not yet performed.
-- Storage TTL behavior is documented in Phase 1 and must be tested before Testnet beta.
+- Storage archival and restoration paths (as opposed to TTL extension) are not yet
+  exercised end-to-end.
 - Independent security review is Phase 11 and has not happened yet.
