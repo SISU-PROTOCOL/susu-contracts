@@ -98,7 +98,13 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-audit-
 
       - name: Install cargo-audit and cargo-deny
-        run: cargo install cargo-audit cargo-deny --locked
+        # The cargo cache below restores ~/.cargo/bin, where a previous run may
+        # already have installed these. `cargo install` refuses to overwrite an
+        # existing binary, so install only what is missing.
+        run: |
+          set -euo pipefail
+          command -v cargo-audit >/dev/null 2>&1 || cargo install cargo-audit --locked
+          command -v cargo-deny  >/dev/null 2>&1 || cargo install cargo-deny  --locked
 
       - name: cargo audit
         run: cargo audit
