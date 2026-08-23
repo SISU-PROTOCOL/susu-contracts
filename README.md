@@ -5,10 +5,13 @@
 Soroban (Rust/Wasm) smart contracts for **Susu Protocol** — a non-custodial rotating
 savings protocol on Stellar.
 
-> **Status: Phase 1 — contracts implemented.** The Factory and Group contracts, their
-> full test suites, and the Factory→Group deployment integration test are in place and
-> green in CI. Nothing here is audited, and no contract has been deployed to Mainnet.
-> See [`docs/CONTRACT_SPEC.md`](docs/CONTRACT_SPEC.md) for the implemented interface.
+> **Status: Phase 2 — deployed to Stellar Testnet.** The Factory and Group contracts,
+> their full test suites, and the Factory→Group deployment integration test are in place
+> and green in CI. The Factory is deployed and verified on Testnet, and the canonical
+> 3 × 10 USD lifecycle passes on-chain with balances asserted from chain state (see
+> [`docs/TESTNET.md`](docs/TESTNET.md)). Nothing here is audited, and no contract has
+> been deployed to Mainnet. See [`docs/CONTRACT_SPEC.md`](docs/CONTRACT_SPEC.md) for the
+> implemented interface.
 
 ## What Susu is
 
@@ -70,6 +73,18 @@ cargo test -p susu-factory --features wasm-integration
 cargo deny check
 cargo audit
 ```
+
+### Testnet
+
+Deployment scripts for Stellar Testnet. Both are idempotent; see
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [`docs/TESTNET.md`](docs/TESTNET.md).
+
+```bash
+./scripts/deploy-testnet.sh   # build, upload, deploy the Factory, verify on-chain
+./scripts/e2e-testnet.sh      # full 3x10 lifecycle with balance assertions
+```
+
+The deployed Factory is recorded in [`docs/TESTNET.md`](docs/TESTNET.md).
 
 ## Security
 

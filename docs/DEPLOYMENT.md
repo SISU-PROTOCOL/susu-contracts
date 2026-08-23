@@ -27,46 +27,54 @@ signing uses the Stellar CLI key store, not committed files.
 
 ## Testnet deployment
 
+Deployment is scripted and idempotent. Private keys stay in the Stellar CLI key store;
+only public addresses are written out.
+
 ```bash
-# 1. Create and fund a dedicated Testnet deployer.
-stellar keys generate susu-deployer --network testnet --fund
+# One command: ensures identities, builds, uploads the Group wasm, deploys the
+# Factory with its __constructor, verifies the config on-chain, and writes
+# .env.testnet (gitignored, public addresses only).
+./scripts/deploy-testnet.sh
 
-# 2. Confirm the public address and record it.
-stellar keys address susu-deployer
-
-# 3. Build.
-cargo build --workspace --target wasm32v1-none --release
-# or: stellar contract build
-
-# 4. Deploy the Group implementation (wasm hash is referenced by the Factory).
-stellar contract upload \
-  --wasm target/wasm32v1-none/release/susu_group.wasm \
-  --source-account susu-deployer \
-  --network testnet
-
-# 5. Deploy the Factory.
-stellar contract deploy \
-  --wasm target/wasm32v1-none/release/susu_factory.wasm \
-  --source-account susu-deployer \
-  --network testnet
-
-# 6. Initialize the Factory with admin, group wasm hash, treasury, and fee_bps.
-#    (exact arguments finalize in Phase 2)
-
-# 7. Verify IDs, then run the full Testnet acceptance checklist.
+# Then drive the full lifecycle and assert the resulting balances.
+./scripts/e2e-testnet.sh
 ```
+
+`deploy-testnet.sh` creates and funds three distinct identities — deployer, admin and
+treasury — and refuses to proceed if any two collide. The Factory is constructed at
+deploy time, so it is never observable in an uninitialized state and its admin cannot be
+front-run.
+
+The group implementation is uploaded once; the Factory stores its wasm hash and
+instantiates groups from it via `deploy_v2` under a deterministic, monotonic salt.
+
+Override the defaults with environment variables: `SUSU_DEPLOYER_IDENTITY`,
+`SUSU_ADMIN_IDENTITY`, `SUSU_TREASURY_IDENTITY`, `PROTOCOL_FEE_BPS`.
+
+> Testnet only. The script refuses to run against any other network.
 
 ## Post-deployment verification
 
-- [ ] Factory contract ID recorded and confirmed on the explorer.
-- [ ] Group wasm hash matches the locally built artifact.
-- [ ] `fee_bps` is exactly `50`.
-- [ ] Treasury address is the dedicated treasury, not a personal wallet.
-- [ ] Admin and deployer are separate identities.
-- [ ] Testnet USDC SAC address verified against official Stellar documentation.
-- [ ] Full end-to-end run passes: create, join, start, contribute, payout, complete.
-- [ ] Treasury received exactly 0.50%; recipient received exactly 99.50%.
+`deploy-testnet.sh` performs the on-chain checks itself and fails the deployment if any
+of them regress, so they are enforced rather than left to a manual pass:
+
+- [x] Factory contract ID recorded and confirmed on the explorer.
+- [x] Group wasm hash matches the locally built artifact (read back from `get_config`).
+- [x] `fee_bps` is exactly `50`.
+- [x] Admin and deployer are separate identities (the script refuses collisions).
+- [x] Full end-to-end run passes: create, join, start, contribute, payout, complete.
+- [x] Treasury received exactly 0.50%; recipient received exactly 99.50%.
+- [x] Every member receives exactly one payout; the group retains nothing.
+- [x] Final round completes exactly once (`Completed`).
+
+Still outstanding before the beta:
+
+- [ ] Testnet USDC SAC address re-verified against official Stellar documentation, and the
+      canonical scenario executed against real USDC (the automated run uses a test asset —
+      see [`TESTNET.md`](TESTNET.md#test-asset-not-testnet-usdc)).
 - [ ] Indexer ingests and reconciles the resulting events.
+- [ ] Negative paths (wrong amount, duplicate contribution, early payout) exercised
+      on-chain rather than only in unit tests.
 
 ## Mainnet
 
