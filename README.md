@@ -1,6 +1,6 @@
 # Susu Protocol — Contracts
 
-[![CI](https://github.com/Susu-Protocol/susu-contracts/actions/workflows/ci.yml/badge.svg)](https://github.com/Susu-Protocol/susu-contracts/actions/workflows/ci.yml)
+[![CI](https://github.com/SISU-PROTOCOL/susu-contracts/actions/workflows/ci.yml/badge.svg)](https://github.com/SISU-PROTOCOL/susu-contracts/actions/workflows/ci.yml)
 
 Soroban (Rust/Wasm) smart contracts for **Susu Protocol** — a non-custodial rotating
 savings protocol on Stellar.
