@@ -1,0 +1,28 @@
+# gitleaks configuration for susu-contracts.
+#
+# Extends the built-in rules rather than replacing them, so real secrets are still
+# caught. The allowlist below covers values that are *public by design* and would
+# otherwise trip the generic-api-key heuristic, which fires on any `NAME=<value>`
+# assignment whose name looks token-ish.
+#
+# Everything allowlisted here is a public identifier that is already published on
+# the Stellar Testnet ledger:
+#
+#   - The Testnet USDC SAC address (a contract id, not a credential).
+#   - Group wasm hashes (content hashes of public build artifacts).
+#   - C... Soroban contract ids and G... account addresses.
+#
+# A private key or seed phrase is never written to this repository, and none of
+# these patterns would match one: Stellar secret keys begin with `S` and seed
+# phrases are words.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public Stellar Testnet identifiers (contract ids, asset SACs, account addresses)"
+regexTarget = "match"
+regexes = [
+  # Testnet USDC SAC (Circle's issued asset, wrapped).
+  '''CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA''',
+]

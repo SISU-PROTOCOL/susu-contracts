@@ -23,8 +23,8 @@
 # run fully automated: Circle's Testnet USDC issuer is the only account that can
 # mint USDC, so Testnet USDC cannot be conjured programmatically.
 #
-# To run the same scenario against Circle's Testnet USDC SAC, set:
-#   TOKEN_SAC=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA
+# To run the same scenario against Circle's Testnet USDC SAC, export TOKEN_SAC
+# with the USDC SAC address recorded in .env.example (STELLAR_TESTNET_USDC_SAC)
 # and fund the three member accounts from Circle's faucet first. The lifecycle
 # and assertions are identical; only the token differs. In that mode the script
 # will not create trustlines or mint, and it will assert the same deltas.
