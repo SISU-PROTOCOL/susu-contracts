@@ -21,6 +21,48 @@
 
 set -euo pipefail
 
+# ---------------------------------------------------------------------------
+# Guard against being edited while it runs.
+#
+# Bash reads a script lazily, by byte offset, so editing one mid-run makes it
+# execute misaligned content: a fragment of a comment becomes a command, and the
+# result is arbitrary rather than merely wrong. That matters here, because this
+# script uploads and deploys contracts.
+#
+# So the file's hash is captured at startup and re-checked on exit. A mismatch
+# means the run executed something nobody wrote, so it fails loudly instead of
+# reporting a deployment that cannot be trusted.
+#
+# The path is made absolute first, because the `cd` below would otherwise make a
+# relative `$0` resolve somewhere else.
+# ---------------------------------------------------------------------------
+SCRIPT_SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+
+# `sha256sum` on Linux, `shasum` on macOS.
+hash_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+SCRIPT_HASH="$(hash_file "$SCRIPT_SELF")"
+
+verify_script_unchanged() {
+  local current
+  current="$(hash_file "$SCRIPT_SELF")"
+  if [ "$current" != "$SCRIPT_HASH" ]; then
+    echo >&2
+    echo "error: $SCRIPT_SELF was modified while it was running." >&2
+    echo "       Bash reads scripts by byte offset, so this run executed content" >&2
+    echo "       that is neither the old nor the new version. Its result cannot" >&2
+    echo "       be trusted; re-run with the file left untouched." >&2
+    exit 1
+  fi
+}
+trap verify_script_unchanged EXIT
+
 cd "$(dirname "$0")/.."
 
 NETWORK="${STELLAR_NETWORK:-testnet}"
@@ -57,6 +99,66 @@ stellar_tx() {
     exit 1
   fi
   printf '%s\n' "$out"
+}
+
+# A contract refusal is a verdict: the same call fails the same way forever, so
+# retrying cannot help. The CLI renders these as `Error(Contract, #N)`.
+#
+# Anything else that fails comes from the toolchain or the network — timeouts,
+# resets, `client error (Connect)`, `client error (SendRequest)`, a 502 from the
+# RPC — and is worth another attempt. The classification is by exclusion rather
+# than by a list of transport messages, because those are unbounded.
+is_contract_refusal() {
+  printf '%s' "$1" | grep -qE 'Error\(Contract, #[0-9]+\)'
+}
+
+# Read a value from a deployed contract.
+#
+# A read has no side effects, so retrying it is always safe.
+#
+# `--quiet` is deliberately not used: it suppresses the error text as well, which
+# is how this script used to fail as a bare `exit 1` with nothing in the log to
+# explain it.
+contract_read() {
+  local attempt=1
+  local max_attempts=3
+  local out
+
+  while :; do
+    if out=$(stellar contract invoke \
+      --source-account "$DEPLOYER" --network "$NETWORK" --send=no "$@" 2>&1); then
+      printf '%s' "$out"
+      return 0
+    fi
+
+    if is_contract_refusal "$out" || [ "$attempt" -ge "$max_attempts" ]; then
+      echo "error: could not read from the contract:" >&2
+      printf '  %s\n' "$*" >&2
+      printf '%s\n' "$out" >&2
+      exit 1
+    fi
+
+    echo "    read failed, retrying ($attempt/$max_attempts)..." >&2
+    sleep $((attempt * 3))
+    attempt=$((attempt + 1))
+  done
+}
+
+# Read a single scalar value.
+#
+# Dropping `--quiet` (it hid the reason a read failed) also lets the CLI's
+# informational lines through — "Simulation identified as read-only. Send by
+# rerunning with `--send=yes`." above all — so the value is taken as the last
+# non-empty line, with JSON quoting stripped.
+#
+# The read is captured before it is filtered, rather than piped straight in.
+# `contract_read` fails by exiting, and in a pipeline that only ends its own
+# element: the pipeline would then report the status of `tail`, so a failed read
+# would look like a success and hand back its own error text as the value.
+contract_view() {
+  local out
+  out=$(contract_read "$@") || return 1
+  printf '%s\n' "$out" | tr -d '"' | grep -v '^[[:space:]]*$' | tail -1
 }
 
 # ---------------------------------------------------------------------------
@@ -138,11 +240,8 @@ echo "    factory id:      $FACTORY_ID"
 # is constructed at deploy time, so there is never an uninitialized window.
 # ---------------------------------------------------------------------------
 echo "==> Verifying deployment on-chain"
-CONFIG=$(stellar contract invoke \
+CONFIG=$(contract_read \
   --id "$FACTORY_ID" \
-  --source-account "$DEPLOYER" \
-  --network "$NETWORK" \
-  --quiet \
   -- get_config)
 
 verify_contains() {
@@ -159,11 +258,8 @@ verify_contains "treasury" "$TREASURY_ADDR"
 verify_contains "group wasm hash" "$GROUP_WASM_HASH"
 verify_contains "fee_bps = 50" "50"
 
-GROUP_COUNT=$(stellar contract invoke \
+GROUP_COUNT=$(contract_view \
   --id "$FACTORY_ID" \
-  --source-account "$DEPLOYER" \
-  --network "$NETWORK" \
-  --quiet \
   -- get_group_count)
 if [ "$GROUP_COUNT" != "0" ]; then
   echo "error: fresh Factory reports $GROUP_COUNT groups, expected 0" >&2

@@ -43,6 +43,49 @@
 
 set -euo pipefail
 
+# ---------------------------------------------------------------------------
+# Guard against being edited while it runs.
+#
+# Bash reads a script lazily, by byte offset, so editing one mid-run makes it
+# execute misaligned content: a fragment of a comment becomes a command, and the
+# behaviour that follows is arbitrary rather than merely wrong. That happened
+# once here, on a run that was moving real test funds and asserting financial
+# invariants. Nothing in the language detects it.
+#
+# So the file's hash is captured at startup and re-checked on exit. A mismatch
+# means the run executed something nobody wrote, so the run fails loudly instead
+# of reporting an outcome that cannot be trusted.
+#
+# The path is made absolute first, because the `cd` below would otherwise make a
+# relative `$0` resolve somewhere else.
+# ---------------------------------------------------------------------------
+SCRIPT_SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+
+# `sha256sum` on Linux, `shasum` on macOS.
+hash_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+SCRIPT_HASH="$(hash_file "$SCRIPT_SELF")"
+
+verify_script_unchanged() {
+  local current
+  current="$(hash_file "$SCRIPT_SELF")"
+  if [ "$current" != "$SCRIPT_HASH" ]; then
+    echo >&2
+    echo "error: $SCRIPT_SELF was modified while it was running." >&2
+    echo "       Bash reads scripts by byte offset, so this run executed content" >&2
+    echo "       that is neither the old nor the new version. Its result cannot" >&2
+    echo "       be trusted; re-run with the file left untouched." >&2
+    exit 1
+  fi
+}
+trap verify_script_unchanged EXIT
+
 cd "$(dirname "$0")/.."
 
 NETWORK="${STELLAR_NETWORK:-testnet}"
@@ -92,7 +135,21 @@ TX_OK_ERRORS=""
 # even when the first attempt failed *after* signing.
 TX_RETRY_AFTER_SIGNING=0
 
-# Run a transaction, retrying only transient transport failures.
+# A contract refusal is deterministic: the same call fails the same way forever,
+# so retrying it cannot help. The CLI renders these as `Error(Contract, #N)`.
+#
+# Everything else that fails comes from the toolchain or the network: timeouts,
+# connection resets, `client error (Connect)`, `client error (SendRequest)`, a
+# 502 from the RPC. Those are worth another attempt.
+#
+# The classification is by exclusion, not by an allowlist of transport phrases,
+# because those phrases are unbounded: every outage so far has produced a new
+# one, and each new one silently turned a retryable blip into a hard failure.
+is_contract_refusal() {
+  printf '%s' "$1" | grep -qE 'Error\(Contract, #[0-9]+\)'
+}
+
+# Run a transaction, retrying transport failures.
 #
 # The Testnet RPC intermittently times out or resets the connection. Those
 # failures come in two forms, and they are not equally safe to retry:
@@ -132,8 +189,7 @@ stellar_tx() {
       fi
     done
 
-    if ! printf '%s' "$out" | grep -qE \
-      'Request timeout|ConnectionReset|connection reset|client error \(Connect\)|No status yet'; then
+    if is_contract_refusal "$out"; then
       echo "error: transaction failed:" >&2
       printf '  %s\n' "$*" >&2
       printf '%s\n' "$out" >&2
@@ -232,34 +288,67 @@ neg_fail=0
 # assert refusals in a script whose other steps move real test funds: a check
 # that is supposed to fail has nothing to submit.
 #
+# Three outcomes are told apart, because conflating them produces a misleading
+# diagnosis:
+#
+#   - The contract refused with the expected code  -> pass.
+#   - The contract refused with a different code   -> fail, and it is a real
+#     finding about the contract.
+#   - The call returned no verdict at all (transport failure) -> retried, and if
+#     it still cannot be reached, reported as such. This is not a refusal and
+#     must never be reported as one: "refused, but not with #13" sends a reader
+#     looking for a contract bug that does not exist.
+#
 # The expected error is matched with its closing parenthesis, so #1 cannot be
 # satisfied by #11.
 expect_contract_error() {
   local label="$1" expected="$2" source="$3"
   shift 3
 
-  local out code
-  set +e
-  out=$(stellar contract invoke \
-    --source-account "$source" --network "$NETWORK" --send=no "$@" 2>&1)
-  code=$?
-  set -e
+  local attempt=1
+  local max_attempts=3
+  local out
+  local code
 
-  if [ "$code" -eq 0 ]; then
-    printf '    FAIL: %-48s was accepted, expected Error(Contract, #%s)\n' "$label" "$expected"
+  while :; do
+    set +e
+    out=$(stellar contract invoke \
+      --source-account "$source" --network "$NETWORK" --send=no "$@" 2>&1)
+    code=$?
+    set -e
+
+    if [ "$code" -eq 0 ]; then
+      printf '    FAIL: %-48s was accepted, expected Error(Contract, #%s)\n' "$label" "$expected"
+      neg_fail=1
+      return 0
+    fi
+
+    # A contract refusal is the only outcome that says anything about the
+    # contract. Anything else means the call never got a verdict, so retry.
+    if ! is_contract_refusal "$out"; then
+      if [ "$attempt" -ge "$max_attempts" ]; then
+        printf '    FAIL: %-48s no contract refusal returned after %d attempts\n' \
+          "$label" "$attempt"
+        printf '%s\n' "$out" | sed -n '1,2p' | sed 's/^/          /'
+        neg_fail=1
+        return 0
+      fi
+      echo "    (no verdict on '$label', retrying $attempt/$max_attempts)" >&2
+      sleep $((attempt * 3))
+      attempt=$((attempt + 1))
+      continue
+    fi
+
+    if printf '%s' "$out" | grep -q "Error(Contract, #${expected})"; then
+      printf '    ok:   %-48s refused with #%s\n' "$label" "$expected"
+      return 0
+    fi
+
+    printf '    FAIL: %-48s refused, but not with #%s\n' "$label" "$expected"
+    printf '%s\n' "$out" | sed -n '1,3p' | sed 's/^/          /'
     neg_fail=1
     return 0
-  fi
-
-  if printf '%s' "$out" | grep -q "Error(Contract, #${expected})"; then
-    printf '    ok:   %-48s refused with #%s\n' "$label" "$expected"
-    return 0
-  fi
-
-  printf '    FAIL: %-48s refused, but not with #%s\n' "$label" "$expected"
-  printf '%s\n' "$out" | sed -n '1,3p' | sed 's/^/          /'
-  neg_fail=1
-  return 0
+  done
 }
 
 echo "==> Ensuring member identities"

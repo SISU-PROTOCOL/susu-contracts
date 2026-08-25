@@ -84,6 +84,12 @@ Deployment scripts for Stellar Testnet. Both are idempotent; see
 ./scripts/e2e-testnet.sh      # full 3x10 lifecycle, plus the refusals, with balance assertions
 ```
 
+The E2E script retries transport failures (Testnet's RPC is intermittently flaky),
+and distinguishes them from contract refusals so a network blip is never reported as
+a contract bug. Both scripts hash themselves at startup and re-check on exit, and
+refuse to trust a run if they were modified while it was in flight — bash reads
+scripts by byte offset, so a mid-run edit would otherwise execute misaligned content.
+
 The deployed Factory is recorded in [`docs/TESTNET.md`](docs/TESTNET.md).
 
 ## Security
