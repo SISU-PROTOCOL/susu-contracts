@@ -66,6 +66,15 @@ of them regress, so they are enforced rather than left to a manual pass:
 - [x] Treasury received exactly 0.50%; recipient received exactly 99.50%.
 - [x] Every member receives exactly one payout; the group retains nothing.
 - [x] Final round completes exactly once (`Completed`).
+- [x] Every expected refusal is refused with the right contract error, asserted
+      against the deployed contracts rather than only in unit tests: create with a
+      single member, a zero contribution, or a zero frequency; start before capacity;
+      join twice, join when full, join after starting; contribute while `Open`, the
+      wrong amount, the wrong round, as a non-member, twice in a round, to a completed
+      group; and payout before the round is funded and after completion.
+
+      These refusals are asserted by simulation only, so the checks cannot move funds
+      and cannot be satisfied by a transaction that silently changed state.
 
 Still outstanding before the beta:
 
@@ -73,8 +82,6 @@ Still outstanding before the beta:
       canonical scenario executed against real USDC (the automated run uses a test asset —
       see [`TESTNET.md`](TESTNET.md#test-asset-not-testnet-usdc)).
 - [ ] Indexer ingests and reconciles the resulting events.
-- [ ] Negative paths (wrong amount, duplicate contribution, early payout) exercised
-      on-chain rather than only in unit tests.
 
 ## Mainnet
 

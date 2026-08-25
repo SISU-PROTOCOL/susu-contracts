@@ -81,7 +81,7 @@ Deployment scripts for Stellar Testnet. Both are idempotent; see
 
 ```bash
 ./scripts/deploy-testnet.sh   # build, upload, deploy the Factory, verify on-chain
-./scripts/e2e-testnet.sh      # full 3x10 lifecycle with balance assertions
+./scripts/e2e-testnet.sh      # full 3x10 lifecycle, plus the refusals, with balance assertions
 ```
 
 The deployed Factory is recorded in [`docs/TESTNET.md`](docs/TESTNET.md).
