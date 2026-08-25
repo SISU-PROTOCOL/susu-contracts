@@ -76,6 +76,18 @@ of them regress, so they are enforced rather than left to a manual pass:
       These refusals are asserted by simulation only, so the checks cannot move funds
       and cannot be satisfied by a transaction that silently changed state.
 
+      Testnet's RPC fails intermittently, so a failing call is classified before it is
+      interpreted. A contract refusal is recognised by its `Error(Contract, #N)`, and
+      anything else is treated as the network having returned no verdict and is retried.
+      The classification is by exclusion rather than by a list of transport messages,
+      because those messages are unbounded — each outage so far has produced a new one,
+      and an unrecognised one used to surface as "refused, but not with #13", which
+      points at the contract for a failure that never reached it.
+
+      The script also hashes itself at startup and re-checks on exit. Bash reads scripts
+      lazily by byte offset, so editing one mid-run makes it execute misaligned content;
+      a mismatch fails the run rather than reporting an outcome that cannot be trusted.
+
 Still outstanding before the beta:
 
 - [ ] Testnet USDC SAC address re-verified against official Stellar documentation, and the
