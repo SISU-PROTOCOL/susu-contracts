@@ -1,0 +1,47 @@
+version: 2
+#
+# Automated dependency updates.
+#
+# WHY THIS EXISTS ALONGSIDE `cargo audit`
+# The contract CI runs `cargo audit`, which reports a known-vulnerable crate and
+# fails the build. It does not fix one, and a red build is not a remedy — the
+# remedy is a pull request that moves the version. Dependabot raises those, which
+# is the half of the loop the audit cannot close.
+#
+# WHY THIS MATTERS MORE HERE THAN ELSEWHERE
+# This is the repository that produces the deployed contracts. A crate advisory
+# that reaches a group contract is not a build-time inconvenience; it is the code
+# holding members' contributions. The grouped patch and minor updates below still
+# go through the full `cargo fmt`, `clippy`, and test set, and the on-chain E2E
+# remains the check that matters for anything touching the contract logic.
+#
+# WHY THE PULL REQUESTS ARE GROUPED
+# An ungrouped setup opens one pull request per dependency, and a week with eight
+# patch bumps is eight reviews — which is how a team learns to close them unread.
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      routine:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+    # A major bump is a breaking change by definition and, for `soroban-sdk`,
+    # carries ABI and storage implications. That decision deserves its own pull
+    # request and its own review rather than riding along in a batch.
+    ignore:
+      - dependency-name: '*'
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
