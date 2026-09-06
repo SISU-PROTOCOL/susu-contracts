@@ -1,3 +1,5 @@
+<img src="assets/wireframe-mesh.svg" alt="Abstract dark wireframe mesh: glowing connected nodes over a perspective grid" width="100%" />
+
 # Susu Protocol — Contracts
 
 [![CI](https://github.com/susu-labs/susu-contracts/actions/workflows/ci.yml/badge.svg)](https://github.com/susu-labs/susu-contracts/actions/workflows/ci.yml)
