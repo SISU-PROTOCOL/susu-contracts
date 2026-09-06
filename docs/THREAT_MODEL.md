@@ -1,7 +1,10 @@
 # Threat Model — susu-contracts
 
-> Phase 1 — updated against the implemented contracts. This document does not
-> claim the system is secure — it records what we are defending against and how.
+> This document does not claim the system is secure — it records what we are defending against
+> and how. It covers the contracts, which are where the funds and the authority live.
+> [`AUDIT_SCOPE.md`](AUDIT_SCOPE.md) covers the threats specific to the frontend, API and indexer:
+> the components most exposed to attack, and the ones that must remain unable to cause financial
+> harm even when fully compromised.
 
 ## Assets
 
@@ -18,6 +21,11 @@
 - **Everything off-chain** (frontend, backend, indexer, database) is untrusted with respect
   to financial authority and may be compromised without moving funds.
 - **Wallet keys** are held by users, never by the protocol.
+- **The configured Soroban RPC endpoint** is trusted for reads. There is no second source and no
+  light-client verification, so a malicious RPC can misreport state at the moment a user decides to
+  sign. It cannot forge a signature.
+- **The Factory's group registry** is what makes a `C…` address a Susu group; clients accept that
+  claim rather than re-deriving it.
 
 ## Adversaries and mitigations
 
@@ -38,16 +46,25 @@ twice, underpay, or claim a payout early.*
 
 - The frontend has no custody and no authority; it can only propose transactions.
 - All transfers are constrained by contract logic to the configured token, amount, and
-  recipient derived from the payout order.
-- Users see transaction details and simulate before signing.
+  recipient derived from the payout order, so a compromised frontend cannot widen what the
+  contract permits.
+- Every write is simulated before the wallet is engaged, and a call the contract rejects is
+  refused before the user is asked to approve anything.
+- The limit of this defence is where the user's information comes from: the app does not decode
+  the envelope for them, so what they approve is what their wallet shows. See
+  [`AUDIT_SCOPE.md`](AUDIT_SCOPE.md#lying-about-what-was-signed).
 
 ### Backend or indexer compromise
 
 *An attacker alters the database to misrepresent balances or recipients.*
 
 - The backend and indexer hold no keys and cannot sign or authorize anything.
-- Chain state is authoritative; the database is a rebuildable cache.
+- Chain state is authoritative; the database is a rebuildable cache, and no decision the UI takes
+  is read from indexed data — whether a member may contribute, and who is paid, is read from the
+  contract. Mutations re-read the contract rather than assuming an effect.
 - Reconciliation detects and repairs divergence.
+- The residual risk is not the funds but the *decision*: a compromised read model can show a false
+  state at the moment a user chooses to sign.
 
 ### Admin or treasury compromise
 
@@ -69,6 +86,14 @@ twice, underpay, or claim a payout early.*
 - On-chain round/member contribution guards and one-payout-per-round guards are the
   authoritative defense.
 - Indexing is idempotent on chain-derived event identity.
+
+### Off-chain surfaces
+
+The frontend, API and indexer carry threats of their own — session theft, a falsely claimed group
+address, resource exhaustion, and wallet-link abuse. They are documented in
+[`AUDIT_SCOPE.md`](AUDIT_SCOPE.md#off-chain-threats) rather than duplicated here, because they are
+about trust in off-chain data rather than about custody. The property they share is that none of
+them can move funds.
 
 ### RPC or database failure
 
@@ -104,4 +129,6 @@ insurance. Threats arising from those systems are out of scope by design.
 - Formal verification of the fee and payout arithmetic is not yet performed.
 - Storage archival and restoration paths (as opposed to TTL extension) are not yet
   exercised end-to-end.
-- Independent security review is Phase 11 and has not happened yet.
+- Independent security review has not happened. The material for it is
+  [`AUDIT_SCOPE.md`](AUDIT_SCOPE.md), which also records the weaknesses we suspect in our own work
+  and the four questions we cannot answer ourselves.
