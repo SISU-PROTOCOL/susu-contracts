@@ -170,20 +170,27 @@ claim about the chain. **We would like this examined specifically.**
 
 `POST /api/v1/transactions/prepare` accepts a client-built envelope and simulates it, which costs
 RPC quota. It validates aggressively (refuses fee bumps, multi-operation transactions, non-invoke
-operations, and any contract outside the Factory and known groups), but the only limit on how often
-it can be called is the API's global rate limiter — 100 requests per minute, shared by every route
-and every user. There is no per-user quota.
+operations, and any contract outside the Factory and known groups). It also carries a rate-limit
+budget of its own — twenty a minute, keyed by the session — rather than drawing on the global one
+that every route and caller shares, because a single shared budget means one caller exhausting the
+minute refuses everyone else while a caller with a second session is not slowed at all. The
+remaining exposure is that every other route still shares the global 100 a minute.
 
 ### Lying about what was signed
 
 *A malicious or compromised environment substitutes a different transaction for the one the user
 believed they were approving.*
 
-The frontend simulates before signing and refuses to reach the wallet if simulation fails, but it
-does not display a decoded envelope to the user, and after signing it checks only that a plain
-transaction (not a fee bump) came back. It does not compare the returned envelope against the one
-it built. The user's view of what they approve is their wallet's. `SECURITY.md` at the repository
-root lists transaction substitution as in scope; this is the honest state of our defence.
+The frontend simulates before signing and refuses to reach the wallet if simulation fails, and it
+now compares the envelope the wallet returns against the one it built: `signatureBase()` is exactly
+the bytes a signer authorizes, so comparing it covers the source, fee, sequence, time bounds, memo
+and every operation and argument. A wallet that returns anything else is refused and nothing is
+submitted.
+
+What remains is what the user *sees*. The app still does not display a decoded envelope, so the only
+view of what is about to be approved is the wallet's own. The check guarantees the transaction is
+ours; it cannot guarantee the user read it. `SECURITY.md` at the repository root lists transaction
+substitution as in scope, and this is the honest state of the defence.
 
 ## What we already believe is weak
 
@@ -203,14 +210,21 @@ our own suspicions, offered so a reviewer can confirm or refute them cheaply.
    deliberately over failing open, and it means availability and authentication are coupled.
 4. **Session tokens in `localStorage` with no CSP committed.** Also above. Mitigated heavily on the
    injection side; the storage choice itself remains the exposure.
-5. **No post-signature envelope verification, and no in-app transaction preview.** Also above.
-6. **Global-only rate limiting.** No per-user or per-route budget on the RPC-spending endpoint.
+5. **No in-app transaction preview, and the wallet is trusted to show what it signs.** The envelope
+   a wallet returns is now compared against the one we built, so a substituted transaction cannot be
+   submitted. What is still not guaranteed is that the user *read* it: the only decoded view of the
+   transaction is the wallet's own.
+6. **The global rate limiter still covers every other route.** The RPC-spending endpoint now carries
+   its own per-session budget, but the rest of the surface shares a single 100-a-minute allowance,
+   and no other route has a budget of its own.
 7. **Database transport when TLS is unverified.** The API refuses a remote database with neither a
    CA nor an explicit opt-out, but the opt-out exists and is an acknowledged MITM gap.
-8. **Two pieces of declared behaviour have no caller.** The TypeScript notification sweeper is never
-   constructed by the server (the `pg_cron` job is what actually derives notifications), and the
-   expired-nonce reaper is never invoked, so spent nonce rows accumulate. Neither is a vulnerability
-   we can see; both are places where the code says something happens and it does not.
+8. **The TypeScript notification sweeper is never constructed by the server.** This one is
+   deliberate — `pg_cron` owns the schedule so that derivation survives this service being down, and
+   the sweeper is a documented manual entry point for deployments without `pg_cron` — but a reader
+   who greps for its callers finds none and reasonably asks why. The expired-nonce reaper had the
+   same shape and was **not** deliberate: it was written, tested, and never called, and has since
+   been wired up. We would rather flag the pattern than have it re-derived.
 
 ## What we know is missing
 
