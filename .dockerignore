@@ -1,0 +1,32 @@
+# Build context for the susu-contracts verification image.
+#
+# Keep this small and secret-free: the image copies the tree, so anything not
+# listed here ends up in a layer.
+
+# Build artifacts — copied into the image they would be stale, host-architecture
+# binaries that shadow a correct build inside the container.
+target/
+**/*.rs.bk
+**/test_snapshots/
+
+# Repository metadata.
+.git/
+.gitignore
+.github/
+
+# Secrets. `.env` and `.env.testnet` hold deploy keys and live contract ids; none
+# of them belong in an image layer, and the tests read their configuration from
+# the environment, not from these files.
+.env
+.env.*
+!.env.example
+
+# Soroban / Stellar CLI local state, and built Wasm (the image builds its own).
+.soroban/
+stellar/
+*.wasm
+
+# Editor / OS noise.
+.DS_Store
+.idea/
+.vscode/
