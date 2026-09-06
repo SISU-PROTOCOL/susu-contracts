@@ -20,7 +20,7 @@ without moving funds.
 
 ## The engagement
 
-**In scope:** the four components below, at the commits named, plus their CI gates and their
+**In scope:** the four components below, at the tagged baseline, plus their CI gates and their
 database schemas (which live in migrations and are part of the shipped system, not an afterthought).
 
 **The review we are asking for** is a security review of a non-custodial system holding other
@@ -33,12 +33,18 @@ components unable to cause financial harm even if fully compromised. If that ass
 anywhere, it is the most serious possible finding, because it invalidates the deployment model
 rather than a single check.
 
-| Component             | Commit                                     | Language        | What it is                                     |
-| --------------------- | ------------------------------------------ | --------------- | ---------------------------------------------- |
-| `susu-contracts`      | `b29c7b29d6fda509c152844f36e53b0e29189c1b` | Rust / Soroban  | Factory and Group contracts — the custody      |
-| `susu-web`            | `38b632726dd75f385b1e493a1317425ce8175f46` | React / TS      | Browser client, wallet integration             |
-| `susu-api`            | `80d16fc959d71697c173c359a1c9052ecbfd79a0` | Node / Fastify  | Read models, invites, profiles, wallet linking |
-| `susu-indexer`        | `f7e063b28364735405cc6a4872d298d0d0d20697` | Deno / TS       | Chain events → Postgres, on a schedule         |
+**The baseline is a tag, not a branch.** Each repository is tagged **`audit-freeze-1`** at the
+revision to review. The tags are annotated, so each records the commit it points at, and a tag does
+not move — anything committed after it is out of scope. If a fix lands while the review is running,
+say so and describe it; do not fold it in silently, because a review of a moving target reviews
+nothing in particular.
+
+| Component        | Language       | What it is                                     |
+| ---------------- | -------------- | ---------------------------------------------- |
+| `susu-contracts` | Rust / Soroban | Factory and Group contracts — the custody      |
+| `susu-web`       | React / TS     | Browser client, wallet integration             |
+| `susu-api`       | Node / Fastify | Read models, invites, profiles, wallet linking |
+| `susu-indexer`   | Deno / TS      | Chain events → Postgres, on a schedule         |
 
 ## The system in one page
 
