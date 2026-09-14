@@ -97,6 +97,23 @@ Still outstanding before the beta:
 
 ## Mainnet
 
-Blocked. Requires the Mainnet readiness gate to be fully satisfied, an independent security
-review to be completed with findings resolved or accepted, and explicit human approval.
-See [`MAINNET_READINESS.md`](MAINNET_READINESS.md).
+Blocked. Requires the Mainnet readiness gate to be fully satisfied, an independent security review to
+be completed with findings resolved or accepted, and explicit human approval. See
+[`MAINNET_READINESS.md`](MAINNET_READINESS.md).
+
+That gate is checked rather than remembered — the mechanical parts by a script, the rest by a written
+attestation:
+
+```bash
+./scripts/check-mainnet-readiness.sh     # exits non-zero while anything is unmet
+```
+
+It is enforced in CI in `--mechanical-only` mode, so the invariants cannot stop being mapped to
+tests, the public interface cannot drift, and a Mainnet switch cannot be flipped on, without failing
+a build. It cannot pass the gate on its own: the audit and the approval are attestations, and until
+they exist the verdict is `NO-GO`.
+
+There is no Mainnet deployment script, and that is deliberate rather than unfinished. It cannot be a
+variant of `deploy-testnet.sh` — Mainnet has no Friendbot, so the identity funding that script relies
+on does not exist there — and a deployment procedure should be reviewed alongside the contracts it
+deploys rather than written before the audit.

@@ -248,7 +248,12 @@ Stated so it is not mistaken for an oversight, and so a reviewer does not spend 
 - **There is no invite revocation endpoint**, despite `invite_links.revoked_at` existing in the
   schema.
 - **Testnet only.** Mainnet writes are refused in code, and the API refuses to start on mainnet
-  without an explicit flag. Mainnet readiness is a later phase with its own gate.
+  without an explicit flag. Mainnet readiness is a later phase with its own gate
+  ([`MAINNET_READINESS.md`](MAINNET_READINESS.md)), which is checked by
+  `scripts/check-mainnet-readiness.sh` rather than remembered. It is enforced in CI in
+  `--mechanical-only` mode, so the invariant-to-test mapping and the frozen public interface cannot
+  regress silently. The verdict there is still `NO-GO` and will remain so until this review is
+  complete — the two are the same gate.
 
 ## How to run it
 

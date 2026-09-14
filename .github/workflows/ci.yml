@@ -69,6 +69,20 @@ jobs:
         # silently skipped.
         run: cargo test -p susu-factory --features wasm-integration
 
+      - name: Mainnet readiness gate (mechanical checks)
+        # The parts of the mainnet gate that a machine can check, enforced on
+        # every push so they cannot regress quietly. Renaming an invariant's test,
+        # adding a third place that moves funds, drifting the public interface, or
+        # flipping a mainnet switch all fail the build here.
+        #
+        # `--mechanical-only` reports the human attestations without treating them
+        # as failures, because CI cannot audit the contracts or approve a
+        # deployment. It is deliberately not a readiness verdict: mainnet stays
+        # blocked until docs/mainnet-attestation.md exists and is honest.
+        #
+        # `--no-tests` because the suite already ran above.
+        run: ./scripts/check-mainnet-readiness.sh --mechanical-only --no-tests
+
   security:
     name: Security Checks
     runs-on: ubuntu-latest

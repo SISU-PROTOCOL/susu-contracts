@@ -92,6 +92,29 @@ scripts by byte offset, so a mid-run edit would otherwise execute misaligned con
 
 The deployed Factory is recorded in [`docs/TESTNET.md`](docs/TESTNET.md).
 
+### Mainnet readiness
+
+Not a deployment script — a check. Mainnet is blocked, and the gate that blocks it is verified rather
+than remembered; see [`docs/MAINNET_READINESS.md`](docs/MAINNET_READINESS.md).
+
+```bash
+./scripts/check-mainnet-readiness.sh     # evidence report; exits non-zero while anything is unmet
+```
+
+It traces each of the eleven financial invariants to the test that proves it, proves the
+no-arbitrary-withdrawal invariant structurally by enumerating every place the contracts can move
+funds, diffs the public interface against a recorded freeze, and requires an independent audit and an
+explicit approval to exist as a written attestation. It **cannot pass the gate on its own** — the
+audit and the approval are attestations, and while they are absent the verdict is `NO-GO`. That is the
+point of it.
+
+CI runs it in `--mechanical-only` mode, so the invariant mapping, the interface freeze and the
+Mainnet safety switches cannot regress without failing a build.
+
+There is deliberately no `deploy-mainnet.sh`: Mainnet has no Friendbot, so the identity funding
+`deploy-testnet.sh` depends on does not exist there, and a deployment procedure should be reviewed
+alongside the contracts rather than written before the audit.
+
 ## Security
 
 Contracts are unaudited. See [`SECURITY.md`](SECURITY.md) for the disclosure process.
