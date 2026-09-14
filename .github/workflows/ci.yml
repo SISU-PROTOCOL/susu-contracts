@@ -22,7 +22,7 @@ jobs:
     name: Format, Lint, Test, Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -73,7 +73,7 @@ jobs:
     name: Security Checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           # Full history so the secret scan can see secrets that were committed
           # and later removed.
