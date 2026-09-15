@@ -1,17 +1,62 @@
 # Susu Protocol — Contracts
 
 [![CI](https://github.com/susu-labs/susu-contracts/actions/workflows/ci.yml/badge.svg)](https://github.com/susu-labs/susu-contracts/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Status: Testnet beta](https://img.shields.io/badge/status-testnet%20beta-orange.svg)](#project-status)
+[![Audit: not yet reviewed](https://img.shields.io/badge/audit-not%20yet%20reviewed-critical.svg)](#security)
 
-Soroban (Rust/Wasm) smart contracts for **Susu Protocol** — a non-custodial rotating
-savings protocol on Stellar.
+Soroban (Rust/Wasm) smart contracts for **Susu Protocol** — a non-custodial rotating savings
+protocol on Stellar. These contracts are the sole financial authority of the system: they hold
+every group's funds and release them only to the recipient the schedule names.
 
-> **Status: Phase 2 — deployed to Stellar Testnet.** The Factory and Group contracts,
-> their full test suites, and the Factory→Group deployment integration test are in place
-> and green in CI. The Factory is deployed and verified on Testnet, and the canonical
-> 3 × 10 USD lifecycle passes on-chain with balances asserted from chain state (see
-> [`docs/TESTNET.md`](docs/TESTNET.md)). Nothing here is audited, and no contract has
-> been deployed to Mainnet. See [`docs/CONTRACT_SPEC.md`](docs/CONTRACT_SPEC.md) for the
-> implemented interface.
+> **This code is unaudited and not mainnet-ready.** It is deployed to Stellar Testnet, where the
+> balances are worthless. Read [Project status](#project-status) before you read anything else.
+
+---
+
+## The system
+
+Susu is four repositories. This one holds the money.
+
+| Repository | Responsibility | Runs on |
+| --- | --- | --- |
+| **`susu-contracts`** *(you are here)* | Soroban contracts. The financial authority. | **Testnet** |
+| [`susu-indexer`](https://github.com/susu-labs/susu-indexer) | Reads chain events, records them in Postgres on a schedule. | **Testnet** (Supabase Cron) |
+| [`susu-api`](https://github.com/susu-labs/susu-api) | Read model, accounts, invites, notifications, transaction preparation. | Local |
+| [`susu-web`](https://github.com/susu-labs/susu-web) | The client. | Local |
+
+The chain is the source of truth. Everything else is a convenience over it that can be deleted
+without affecting a single balance.
+
+## Project status
+
+**Testnet beta. Not audited. Not mainnet-ready.**
+
+All twelve planned build phases are implemented, and the canonical lifecycle has been executed
+end-to-end against the deployed Testnet contracts with balances asserted from chain state.
+
+Two things stand between this and mainnet. Neither of them is code:
+
+| Gate | State |
+| --- | --- |
+| **Independent security review** | **Not commissioned.** What a reviewer needs is written and waiting in [`docs/AUDIT_SCOPE.md`](docs/AUDIT_SCOPE.md), and the code to review is frozen at the annotated `audit-freeze-1` tag. |
+| **Mainnet readiness** | **Implemented, and currently `NO-GO` — by design.** [`scripts/check-mainnet-readiness.sh`](scripts/check-mainnet-readiness.sh) verifies the mechanical gates and refuses to pass while the audit and the approval attestation are absent. |
+
+Nothing is deployed to Mainnet, and the code refuses to write there.
+
+## Contents
+
+- [What Susu is](#what-susu-is)
+- [Architecture](#architecture)
+- [Financial invariants](#financial-invariants)
+- [Layout](#layout)
+- [Development](#development)
+  - [Testnet](#testnet)
+  - [Mainnet readiness](#mainnet-readiness)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [Security](#security)
+- [License](#license)
 
 ## What Susu is
 
@@ -19,6 +64,9 @@ Members of a group contribute a fixed amount at a fixed interval. Once every mem
 contributed for the current round, the pool is paid to the scheduled recipient, minus a
 transparent **0.50% (50 bps)** protocol fee sent to a dedicated treasury. Rounds continue
 until every member has received exactly one payout.
+
+It is an old arrangement — a *susu*, a *tanda*, a *chit fund* — and it works. What usually
+breaks it is having to trust whoever is holding the money. Here, nobody holds it.
 
 ## Architecture
 
@@ -47,6 +95,9 @@ fee + recipient_amount == pool
 - Final round completes exactly once.
 
 **Floating point is never used for money.**
+
+Each of these is traced to the test that proves it by
+[`scripts/check-mainnet-readiness.sh`](scripts/check-mainnet-readiness.sh), which runs in CI.
 
 ## Layout
 
@@ -90,12 +141,13 @@ a contract bug. Both scripts hash themselves at startup and re-check on exit, an
 refuse to trust a run if they were modified while it was in flight — bash reads
 scripts by byte offset, so a mid-run edit would otherwise execute misaligned content.
 
-The deployed Factory is recorded in [`docs/TESTNET.md`](docs/TESTNET.md).
+The deployed Factory, its admin, the treasury and the verified `fee_bps` are recorded in
+[`docs/TESTNET.md`](docs/TESTNET.md).
 
 ### Mainnet readiness
 
-Not a deployment script — a check. Mainnet is blocked, and the gate that blocks it is verified rather
-than remembered; see [`docs/MAINNET_READINESS.md`](docs/MAINNET_READINESS.md).
+Not a deployment script — a check. Mainnet is blocked, and the gate that blocks it is verified
+rather than remembered; see [`docs/MAINNET_READINESS.md`](docs/MAINNET_READINESS.md).
 
 ```bash
 ./scripts/check-mainnet-readiness.sh     # evidence report; exits non-zero while anything is unmet
@@ -115,11 +167,29 @@ There is deliberately no `deploy-mainnet.sh`: Mainnet has no Friendbot, so the i
 `deploy-testnet.sh` depends on does not exist there, and a deployment procedure should be reviewed
 alongside the contracts rather than written before the audit.
 
+## Documentation
+
+| Document | What it covers |
+| --- | --- |
+| [`docs/CONTRACT_SPEC.md`](docs/CONTRACT_SPEC.md) | The implemented interface, method by method. |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Storage layout, authorization, and how the two contracts relate. |
+| [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) | Trust boundaries, adversaries, and off-chain surfaces. |
+| [`docs/AUDIT_SCOPE.md`](docs/AUDIT_SCOPE.md) | The reviewer's brief: scope, assets, what is already known to be weak. |
+| [`docs/TESTNET.md`](docs/TESTNET.md) | The live deployment, and the reference 3 × 10 USD scenario. |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | How to deploy, and why Mainnet has no script. |
+| [`docs/MAINNET_READINESS.md`](docs/MAINNET_READINESS.md) | Every gate between here and Mainnet, machine-checked or attested. |
+| [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | What to do when something is wrong. |
+
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) and the [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+
+Changes affecting financial invariants, custody, authorization, payout behavior, or fees
+require human review before merge — a green CI run is not sufficient for those.
+
 ## Security
 
-Contracts are unaudited. See [`SECURITY.md`](SECURITY.md) for the disclosure process.
-Changes affecting financial invariants, custody, authorization, payout behavior, or fees
-require human review before merge.
+Contracts are **unaudited**. See [`SECURITY.md`](SECURITY.md) for the disclosure process.
 
 ## License
 
